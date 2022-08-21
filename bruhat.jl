@@ -1,5 +1,6 @@
 #= Most of the code in this file is based on code by Professor Jean Michel (reused here with his
-permission). See the following paper for his context and for his code for the C version of GAP3:
+permission). See the following paper for his context, which includes an explanation for some of the
+functions below and has code for the C version of GAP3:
 
 Jean Michel. The development version of the CHEVIE package of GAP3. J. Algebra, 435:308–336, 2015.
 =#
@@ -10,14 +11,14 @@ dominant elements (see arXiv:2110.09266).
 
 The input is as follows:
 . A Weyl group W
-. A list L of pairs of words (in GAP notation) representing two elements in a conjugacy class of W,
-    one is of minimal length and the other one is minimally dominant. The pairs in this list are
-    separated by the string "end cc".
+. A list L of pairs of reduced words (in GAP notation) representing two elements in a conjugacy
+    class of W, one is of minimal length and the other one is minimally dominant. The pairs in this
+    list are separated by the string "end cc".
 . A prime number p
 
 Such a list L can be computed with the other file in this repository.
-Running test_main_conjecture(W,L,p) then verifies whether the corresponding Bruhat cells intersect
-the same conjugacy classes in the associated (simply connected) reductive group, over an
+Running test_main_conjecture(W, L, p) then verifies whether the corresponding Bruhat cells
+intersect the same conjugacy classes in the associated (simply connected) reductive group, over an
 algebraically closed field of characteristic p.
 
 Input example:
@@ -49,7 +50,7 @@ using Gapjm     # https://github.com/jmichel7/Gapjm.jl
 using LinearAlgebra
 
 
-function f(W, wrd, q)
+function f_per_wrd(W, wrd, q)
     permutedims(
         toM(
             DLLefschetz(Tbasis(hecke(W, q))(W(wrd...))).v[
@@ -68,9 +69,9 @@ function g(W, q, p)
 end
 
 
-function vdash(W, wrd, p)
+function vdash_per_wrd(W, wrd, p)
     q = Pol()^2
-    m = f(W, wrd, q) * g(W, q, p)
+    m = f_per_wrd(W, wrd, q) * g(W, q, p)
     map(j -> axes(m, 2)[(!iszero).(m[j, :])], axes(m, 1))
 end
 
@@ -86,7 +87,7 @@ function test_main_conjecture(W, L, p)
             end
             indices_of_conjugacy_classes = []
         else
-            append!(indices_of_conjugacy_classes, vdash(W, wrd, p))
+            append!(indices_of_conjugacy_classes, vdash_per_wrd(W, wrd, p))
         end
     end
 end

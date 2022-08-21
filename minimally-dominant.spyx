@@ -7,14 +7,14 @@ minimal length and the other one is minimally dominant. The pairs in this list, 
 conjugacy classes, are separated by the string "end cc".
 
 Input is:
-. A Weyl group W acting on its root lattice.
+. A Weyl group W (which in most auxiliary functions is assumed to be acting on its root lattice)
 
 Input example:
-> W = WeylGroup(RootSystem(["B",3]).root_lattice())
+> W = WeylGroup(["B",3])
 > compute_pair_of_min_length_and_min_dom_elts(W) 
 
-(The user may need to replace single quotes in the output with double quotes before copying it, in
-order to use it in Julia with the other code in this repository.)
+(The user may need to replace single quotes in the output with double quotes, in order to use it in
+Julia with the other code in this repository.)
 """
 
 
@@ -23,12 +23,12 @@ def minimal_length_elts_of_set(X):
     return {x for x in X if x.length() == min_length}
 
 
-def minimally_dominant_elements_of_a_set(W, V, root_hyperplanes, Y):
+def minimally_dominant_elements_of_a_set(W, V, fundamental_weyl_chamber, Y):
     X = set()
     min_dom_length = W.long_element().length()
     for w in Y:
         if w.length() <= min_dom_length:
-            if is_dominant(W, V, root_hyperplanes, w):
+            if is_dominant(W, V, fundamental_weyl_chamber, w):
                 if w.length() < min_dom_length:
                     min_dom_length = w.length()
                     X = {w}
@@ -37,23 +37,19 @@ def minimally_dominant_elements_of_a_set(W, V, root_hyperplanes, Y):
     return X
 
 
-def is_dominant(W, V, root_hyperplanes, w):
+def is_dominant(W, V, fundamental_weyl_chamber, w):
     if w.reflection_length() == W.rank() or w.is_one():
         return True
     Vw = V_w(W, V, w)
-    B = V.span(intersect_closure_fundamental_cone_with_subspace(W, Vw))
-    for h in hyperplanes_not_containing_subspace(root_hyperplanes, Vw):
-        if B.is_subspace(h):
-            return False
-    return True
+    return Vw == V.span(intersect_closure_fundamental_cone_with_subspace(fundamental_weyl_chamber, Vw))
 
 
 def fundamental_weyl_chamber_in_root_basis(W):
     return list(CartanMatrix(W.cartan_type()).inverse().transpose())
 
 
-def intersect_closure_fundamental_cone_with_subspace(W, subspace):
-    fundamental_cone = Polyhedron(rays=fundamental_weyl_chamber_in_root_basis(W), base_ring=AA)
+def intersect_closure_fundamental_cone_with_subspace(fundamental_weyl_chamber, subspace):
+    fundamental_cone = Polyhedron(rays=fundamental_weyl_chamber, base_ring=AA)
     intersect_cone = fundamental_cone.intersection(Polyhedron(lines=subspace.basis(), base_ring=AA))
     return [ray.vector() for ray in intersect_cone.rays()]
 
@@ -62,29 +58,11 @@ def V_w(W, V, w):
     return V.span((w.to_matrix() - matrix.identity(W.rank())).columns())
 
 
-def root_hyperplanes_in_basis_of_simple_roots(W, V):
-    w0 = W.long_element()
-    H = w0.inversion_arrangement()
-    return [hyperplane_in_basis_of_simple_roots(W, V, h) for h in H]
-
-
-def hyperplane_in_basis_of_simple_roots(W, V, h):
-    h_old_basis = h.linear_part().basis()
-    transformation_matrix = CartanMatrix(
-        W.cartan_type()).symmetrized_matrix().inverse()
-    h_new_basis = [v * transformation_matrix for v in h_old_basis]
-    return V.span(h_new_basis)
-
-
-def hyperplanes_not_containing_subspace(root_hyperplanes, Y):
-    return [h for h in root_hyperplanes if not Y.is_subspace(h)]
-
-
 def convert_word_from_bourbaki_to_gap(cartan_type, word):
     rk = cartan_type[1]
-    if cartan_type[0] in {'B', 'D'}:
+    if cartan_type[0] in {'B', 'C', 'D'}:
         dic = {i: rk - i + 1 for i in range(1, rk+1)}
-    if cartan_type[0] in {'A', 'F', 'G'}:
+    if cartan_type[0] in {'A', 'E', 'F', 'G'}:
         dic = {i: i for i in range(1, rk+1)}
     return [dic[word[i]] for i in range(len(word))]
 
@@ -92,12 +70,12 @@ def convert_word_from_bourbaki_to_gap(cartan_type, word):
 def compute_pair_of_min_length_and_min_dom_elts(W):
     W = WeylGroup(RootSystem(W.cartan_type()).root_lattice())
     V = VectorSpace(AA, W.rank())
-    root_hyperplanes = root_hyperplanes_in_basis_of_simple_roots(W, V)
     cartan_type = W.cartan_type()
+    fundamental_weyl_chamber = fundamental_weyl_chamber_in_root_basis(W)
     L = []
     for O in W.conjugacy_classes():
         if O[0].reflection_length() not in {0, W.rank()}:
-            for x in minimally_dominant_elements_of_a_set(W, V, root_hyperplanes, O):
+            for x in minimally_dominant_elements_of_a_set(W, V, fundamental_weyl_chamber, O):
                 break
             for y in minimal_length_elts_of_set(O):
                 break
