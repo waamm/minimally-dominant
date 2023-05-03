@@ -2,19 +2,16 @@
 This code can be used to compute the set of dominant or minimally dominant elements of a conjugacy
 class of a Weyl group W.
 The final function in this file produces for such W a list of pairs of words (in GAP notation)
-representing two elements for each (nonelliptic and nontrivial) conjugacy class of W: one is of
-minimal length and the other one is minimally dominant. The pairs in this list, corresponding to
-conjugacy classes, are separated by the string "end cc".
+representing two elements for each (nonelliptic and nontrivial) conjugacy class of W: the first is
+of minimal length and the second one is minimally dominant.
 
 Input is:
-. A Weyl group W (which in most auxiliary functions is assumed to be acting on its root lattice)
+. A Weyl group W (which in most of the auxiliary functions below is assumed to be acting on its
+root lattice)
 
 Input example:
 > W = WeylGroup(["B",3])
-> compute_pair_of_min_length_and_min_dom_elts(W) 
-
-(The user may need to replace single quotes in the output with double quotes, in order to use it in
-Julia with the other code in this repository.)
+> compute_pairs_of_min_length_and_min_dom_elts(W) 
 """
 
 
@@ -23,35 +20,35 @@ def minimal_length_elts_of_set(X):
     return {x for x in X if x.length() == min_length}
 
 
-def minimally_dominant_elements_of_a_set(W, V, fundamental_weyl_chamber, Y):
-    X = set()
+def minimally_dominant_elements_of_conjugacy_class(W, V, dominant_weyl_chamber, X):
+    ans = set()
     min_dom_length = W.long_element().length()
-    for w in Y:
+    for w in X:
         if w.length() <= min_dom_length:
-            if is_dominant(W, V, fundamental_weyl_chamber, w):
+            if is_dominant(W, V, dominant_weyl_chamber, w):
                 if w.length() < min_dom_length:
                     min_dom_length = w.length()
-                    X = {w}
+                    ans = {w}
                 else:
-                    X.add(w)
-    return X
+                    ans.add(w)
+    return ans
 
 
-def is_dominant(W, V, fundamental_weyl_chamber, w):
+def is_dominant(W, V, dominant_weyl_chamber, w):
     if w.reflection_length() == W.rank() or w.is_one():
         return True
     Vw = V_w(W, V, w)
-    return Vw == V.span(intersect_closure_fundamental_cone_with_subspace(fundamental_weyl_chamber, Vw))
+    return Vw == V.span(intersect_closure_cone_with_subspace(dominant_weyl_chamber, Vw))
 
 
-def fundamental_weyl_chamber_in_root_basis(W):
+def dominant_weyl_chamber_in_root_basis(W):
     return list(CartanMatrix(W.cartan_type()).inverse().transpose())
 
 
-def intersect_closure_fundamental_cone_with_subspace(fundamental_weyl_chamber, subspace):
-    fundamental_cone = Polyhedron(rays=fundamental_weyl_chamber, base_ring=AA)
-    intersect_cone = fundamental_cone.intersection(Polyhedron(lines=subspace.basis(), base_ring=AA))
-    return [ray.vector() for ray in intersect_cone.rays()]
+def intersect_closure_cone_with_subspace(cone_rays, subspace):
+    cone = Polyhedron(rays=cone_rays, base_ring=AA)
+    intersected_cone = cone.intersection(Polyhedron(lines=subspace.basis(), base_ring=AA))
+    return [ray.vector() for ray in intersected_cone.rays()]
 
 
 def V_w(W, V, w):
@@ -67,21 +64,23 @@ def convert_word_from_bourbaki_to_gap(cartan_type, word):
     return [dic[word[i]] for i in range(len(word))]
 
 
-def compute_pair_of_min_length_and_min_dom_elts(W):
+def gap_word_of_elt(cartan_type, w):
+    return convert_word_from_bourbaki_to_gap(cartan_type, w.reduced_word())
+
+
+def compute_pairs_of_min_length_and_min_dom_elts(W):
     W = WeylGroup(RootSystem(W.cartan_type()).root_lattice())
     V = VectorSpace(AA, W.rank())
     cartan_type = W.cartan_type()
-    fundamental_weyl_chamber = fundamental_weyl_chamber_in_root_basis(W)
+    dominant_weyl_chamber = dominant_weyl_chamber_in_root_basis(W)
     L = []
     for O in W.conjugacy_classes():
         if O[0].reflection_length() not in {0, W.rank()}:
-            for x in minimally_dominant_elements_of_a_set(W, V, fundamental_weyl_chamber, O):
+            for x in minimal_length_elts_of_set(O):
                 break
-            for y in minimal_length_elts_of_set(O):
+            for y in minimally_dominant_elements_of_conjugacy_class(
+                W, V, dominant_weyl_chamber, O):
                 break
-            L.append(convert_word_from_bourbaki_to_gap(
-                cartan_type, x.reduced_word()))
-            L.append(convert_word_from_bourbaki_to_gap(
-                cartan_type, y.reduced_word()))
-            L.append("end cc")
+            word_pair = tuple(gap_word_of_elt(cartan_type, w) for w in [x,y])
+            L.append(word_pair)
     return L

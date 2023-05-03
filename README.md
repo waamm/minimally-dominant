@@ -18,7 +18,7 @@ Written for [SageMath] version 8.7 and tested with 9.4, using Python 3.9.5.
 
 ## bruhat.jl
 
-It can use such pairs of elements to test whether the corresponding Bruhat cells
+Uses such pairs of elements to test whether the corresponding Bruhat cells
 intersect the same conjugacy classes in the associated simply connected
 reductive group.
 
