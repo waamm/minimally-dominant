@@ -73,7 +73,7 @@ function test_main_conjecture(W, L, p)
             append!(indices_of_conjugacy_classes, vdash_per_wrd(W, wrd, p))
         end
         if length(Set(indices_of_conjugacy_classes)) != 1
-            print("Counterexample at conjugacy class ", count_cc, " in L\n")
+            print("Counterexample at conjugacy class ", count_cc, " in array\n")
         end
     end
 end

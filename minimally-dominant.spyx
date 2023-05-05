@@ -15,38 +15,44 @@ Input example:
 """
 
 
-def minimal_length_elts_of_set(X):
-    min_length = min({x.length() for x in X})
-    return {x for x in X if x.length() == min_length}
+from functools import partial
+is_subspace_dominant_dic = {}
 
 
-def minimally_dominant_elements_of_conjugacy_class(W, V, dominant_weyl_chamber, X):
-    ans = set()
-    min_dom_length = W.long_element().length()
-    for w in X:
-        if w.length() <= min_dom_length:
-            if is_dominant(W, V, dominant_weyl_chamber, w):
-                if w.length() < min_dom_length:
-                    min_dom_length = w.length()
-                    ans = {w}
-                else:
-                    ans.add(w)
+def minimal_length_elt_of_subset_of_set(W, X, subset_criterion):
+    ans = None
+    min_length = W.long_element().length() + 1
+    for x in X:
+        if x.length() < min_length:
+            if subset_criterion(x) == True:
+                min_length = x.length()
+                ans = x
     return ans
+
+
+def minimal_length_elt_of_set(W, X):
+    return minimal_length_elt_of_subset_of_set(W, X, lambda x: True)
+
+
+def minimally_dominant_elt_of_set(W, X, is_elt_dominant):
+    return minimal_length_elt_of_subset_of_set(W, X, is_elt_dominant)
 
 
 def is_dominant(W, V, dominant_weyl_chamber, w):
     if w.reflection_length() == W.rank() or w.is_one():
         return True
     Vw = V_w(W, V, w)
-    return Vw == V.span(intersect_closure_cone_with_subspace(dominant_weyl_chamber, Vw))
+    if Vw not in is_subspace_dominant_dic:
+        is_subspace_dominant_dic[Vw] = ( Vw == V.span(intersect_closure_cone_with_subspace(
+            dominant_weyl_chamber, Vw)) )
+    return is_subspace_dominant_dic[Vw]
 
 
 def dominant_weyl_chamber_in_root_basis(W):
     return list(CartanMatrix(W.cartan_type()).inverse().transpose())
 
 
-def intersect_closure_cone_with_subspace(cone_rays, subspace):
-    cone = Polyhedron(rays=cone_rays, base_ring=AA)
+def intersect_closure_cone_with_subspace(cone, subspace):
     intersected_cone = cone.intersection(Polyhedron(lines=subspace.basis(), base_ring=AA))
     return [ray.vector() for ray in intersected_cone.rays()]
 
@@ -55,7 +61,7 @@ def V_w(W, V, w):
     return V.span((w.to_matrix() - matrix.identity(W.rank())).columns())
 
 
-def convert_word_from_bourbaki_to_gap(cartan_type, word):
+def convert_word_from_bourbaki_to_gap(word, cartan_type):
     rk = cartan_type[1]
     if cartan_type[0] in {'B', 'C', 'D'}:
         dic = {i: rk - i + 1 for i in range(1, rk+1)}
@@ -64,23 +70,21 @@ def convert_word_from_bourbaki_to_gap(cartan_type, word):
     return [dic[word[i]] for i in range(len(word))]
 
 
-def gap_word_of_elt(cartan_type, w):
-    return convert_word_from_bourbaki_to_gap(cartan_type, w.reduced_word())
+def gap_word_of_elt(w, cartan_type):
+    return convert_word_from_bourbaki_to_gap(w.reduced_word(), cartan_type)
 
 
 def compute_pairs_of_min_length_and_min_dom_elts(W):
     W = WeylGroup(RootSystem(W.cartan_type()).root_lattice())
     V = VectorSpace(AA, W.rank())
     cartan_type = W.cartan_type()
-    dominant_weyl_chamber = dominant_weyl_chamber_in_root_basis(W)
+    dominant_weyl_chamber = Polyhedron(rays=dominant_weyl_chamber_in_root_basis(W), base_ring=AA)
+    is_dominant_partial = partial(is_dominant, W, V, dominant_weyl_chamber)
     L = []
     for O in W.conjugacy_classes():
         if O[0].reflection_length() not in {0, W.rank()}:
-            for x in minimal_length_elts_of_set(O):
-                break
-            for y in minimally_dominant_elements_of_conjugacy_class(
-                W, V, dominant_weyl_chamber, O):
-                break
-            word_pair = tuple(gap_word_of_elt(cartan_type, w) for w in [x,y])
+            x = minimal_length_elt_of_set(W, O)
+            y = minimally_dominant_elt_of_set(W, O, is_dominant_partial)
+            word_pair = tuple(gap_word_of_elt(w, cartan_type) for w in [x,y])
             L.append(word_pair)
     return L
